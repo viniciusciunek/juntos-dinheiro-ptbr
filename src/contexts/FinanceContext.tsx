@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 
@@ -235,8 +234,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const updated = receivables.map(r => {
       if (r.id === receivableId) {
         const newPaidAmount = r.paidAmount + amount;
-        const status = newPaidAmount >= r.amount ? 'pago' : 
-                      newPaidAmount > 0 ? 'parcialmente_pago' : 'pendente';
+        const status: 'pendente' | 'parcialmente_pago' | 'pago' = 
+          newPaidAmount >= r.amount ? 'pago' : 
+          newPaidAmount > 0 ? 'parcialmente_pago' : 'pendente';
         
         return { ...r, paidAmount: newPaidAmount, status };
       }
