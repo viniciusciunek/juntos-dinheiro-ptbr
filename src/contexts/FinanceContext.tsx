@@ -1,0 +1,321 @@
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
+
+export interface ThirdParty {
+  id: string;
+  name: string;
+  userId: string;
+}
+
+export interface Card {
+  id: string;
+  name: string;
+  userId: string;
+}
+
+export interface Transaction {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  type: 'expense' | 'income';
+  userId: string;
+  
+  // Campos específicos para despesas
+  paymentMethod?: 'credito' | 'debito' | 'pix' | 'dinheiro';
+  cardId?: string;
+  responsibleType?: 'eu' | 'conjuge' | 'terceiro';
+  thirdPartyId?: string;
+  isInstallment?: boolean;
+  currentInstallment?: number;
+  totalInstallments?: number;
+  category?: string;
+  
+  // Campos específicos para receitas
+  source?: string;
+  recipient?: 'eu' | 'conjuge';
+  
+  // Controle de pagamento por terceiros
+  isPaid?: boolean;
+  paidAmount?: number;
+}
+
+export interface Receivable {
+  id: string;
+  thirdPartyId: string;
+  transactionId: string;
+  amount: number;
+  paidAmount: number;
+  status: 'pendente' | 'parcialmente_pago' | 'pago';
+  dueDate: string;
+  userId: string;
+}
+
+interface FinanceContextType {
+  // Third Parties
+  thirdParties: ThirdParty[];
+  addThirdParty: (name: string) => void;
+  updateThirdParty: (id: string, name: string) => void;
+  deleteThirdParty: (id: string) => void;
+  
+  // Cards
+  cards: Card[];
+  addCard: (name: string) => void;
+  updateCard: (id: string, name: string) => void;
+  deleteCard: (id: string) => void;
+  
+  // Transactions
+  transactions: Transaction[];
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'userId'>) => void;
+  updateTransaction: (id: string, transaction: Partial<Transaction>) => void;
+  deleteTransaction: (id: string) => void;
+  
+  // Receivables
+  receivables: Receivable[];
+  recordPayment: (receivableId: string, amount: number) => void;
+  
+  // Analytics
+  getCurrentMonthExpenses: () => number;
+  getCurrentMonthIncome: () => number;
+  getCardExpenses: (cardId: string, month?: string) => number;
+  getThirdPartyBalance: (thirdPartyId: string) => number;
+}
+
+const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
+
+export const useFinance = () => {
+  const context = useContext(FinanceContext);
+  if (context === undefined) {
+    throw new Error('useFinance deve ser usado dentro de um FinanceProvider');
+  }
+  return context;
+};
+
+export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const [thirdParties, setThirdParties] = useState<ThirdParty[]>([]);
+  const [cards, setCards] = useState<Card[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [receivables, setReceivables] = useState<Receivable[]>([]);
+
+  // Carregar dados do localStorage
+  useEffect(() => {
+    if (user) {
+      const savedThirdParties = localStorage.getItem(`finance_third_parties_${user.id}`);
+      const savedCards = localStorage.getItem(`finance_cards_${user.id}`);
+      const savedTransactions = localStorage.getItem(`finance_transactions_${user.id}`);
+      const savedReceivables = localStorage.getItem(`finance_receivables_${user.id}`);
+
+      if (savedThirdParties) setThirdParties(JSON.parse(savedThirdParties));
+      if (savedCards) setCards(JSON.parse(savedCards));
+      if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
+      if (savedReceivables) setReceivables(JSON.parse(savedReceivables));
+    }
+  }, [user]);
+
+  // Salvar dados no localStorage
+  const saveToLocalStorage = (key: string, data: any) => {
+    if (user) {
+      localStorage.setItem(`${key}_${user.id}`, JSON.stringify(data));
+    }
+  };
+
+  const addThirdParty = (name: string) => {
+    if (!user) return;
+    const newThirdParty: ThirdParty = {
+      id: Date.now().toString(),
+      name,
+      userId: user.id
+    };
+    const updated = [...thirdParties, newThirdParty];
+    setThirdParties(updated);
+    saveToLocalStorage('finance_third_parties', updated);
+  };
+
+  const updateThirdParty = (id: string, name: string) => {
+    const updated = thirdParties.map(tp => tp.id === id ? { ...tp, name } : tp);
+    setThirdParties(updated);
+    saveToLocalStorage('finance_third_parties', updated);
+  };
+
+  const deleteThirdParty = (id: string) => {
+    const updated = thirdParties.filter(tp => tp.id !== id);
+    setThirdParties(updated);
+    saveToLocalStorage('finance_third_parties', updated);
+  };
+
+  const addCard = (name: string) => {
+    if (!user) return;
+    const newCard: Card = {
+      id: Date.now().toString(),
+      name,
+      userId: user.id
+    };
+    const updated = [...cards, newCard];
+    setCards(updated);
+    saveToLocalStorage('finance_cards', updated);
+  };
+
+  const updateCard = (id: string, name: string) => {
+    const updated = cards.map(card => card.id === id ? { ...card, name } : card);
+    setCards(updated);
+    saveToLocalStorage('finance_cards', updated);
+  };
+
+  const deleteCard = (id: string) => {
+    const updated = cards.filter(card => card.id !== id);
+    setCards(updated);
+    saveToLocalStorage('finance_cards', updated);
+  };
+
+  const addTransaction = (transaction: Omit<Transaction, 'id' | 'userId'>) => {
+    if (!user) return;
+    
+    const newTransaction: Transaction = {
+      ...transaction,
+      id: Date.now().toString(),
+      userId: user.id
+    };
+
+    let updatedTransactions = [newTransaction];
+
+    // Se for parcelamento, criar as parcelas futuras
+    if (transaction.isInstallment && transaction.totalInstallments && transaction.totalInstallments > 1) {
+      for (let i = 2; i <= transaction.totalInstallments; i++) {
+        const futureDate = new Date(transaction.date);
+        futureDate.setMonth(futureDate.getMonth() + (i - 1));
+        
+        const installmentTransaction: Transaction = {
+          ...newTransaction,
+          id: `${Date.now()}_${i}`,
+          date: futureDate.toISOString().split('T')[0],
+          currentInstallment: i
+        };
+        updatedTransactions.push(installmentTransaction);
+      }
+    }
+
+    // Se a despesa é de um terceiro, criar um receivable
+    if (transaction.type === 'expense' && transaction.responsibleType === 'terceiro' && transaction.thirdPartyId) {
+      const newReceivable: Receivable = {
+        id: `receivable_${Date.now()}`,
+        thirdPartyId: transaction.thirdPartyId,
+        transactionId: newTransaction.id,
+        amount: transaction.amount,
+        paidAmount: 0,
+        status: 'pendente',
+        dueDate: transaction.date,
+        userId: user.id
+      };
+      
+      const updatedReceivables = [...receivables, newReceivable];
+      setReceivables(updatedReceivables);
+      saveToLocalStorage('finance_receivables', updatedReceivables);
+    }
+
+    const allTransactions = [...transactions, ...updatedTransactions];
+    setTransactions(allTransactions);
+    saveToLocalStorage('finance_transactions', allTransactions);
+  };
+
+  const updateTransaction = (id: string, updatedTransaction: Partial<Transaction>) => {
+    const updated = transactions.map(t => t.id === id ? { ...t, ...updatedTransaction } : t);
+    setTransactions(updated);
+    saveToLocalStorage('finance_transactions', updated);
+  };
+
+  const deleteTransaction = (id: string) => {
+    const updated = transactions.filter(t => t.id !== id);
+    setTransactions(updated);
+    saveToLocalStorage('finance_transactions', updated);
+  };
+
+  const recordPayment = (receivableId: string, amount: number) => {
+    const updated = receivables.map(r => {
+      if (r.id === receivableId) {
+        const newPaidAmount = r.paidAmount + amount;
+        const status = newPaidAmount >= r.amount ? 'pago' : 
+                      newPaidAmount > 0 ? 'parcialmente_pago' : 'pendente';
+        
+        return { ...r, paidAmount: newPaidAmount, status };
+      }
+      return r;
+    });
+    
+    setReceivables(updated);
+    saveToLocalStorage('finance_receivables', updated);
+
+    // Adicionar como receita
+    if (user) {
+      const paymentTransaction: Transaction = {
+        id: `payment_${Date.now()}`,
+        description: `Recebimento de terceiro`,
+        amount,
+        date: new Date().toISOString().split('T')[0],
+        type: 'income',
+        source: 'Recebimento de Terceiro',
+        recipient: 'eu',
+        userId: user.id
+      };
+      
+      const updatedTransactions = [...transactions, paymentTransaction];
+      setTransactions(updatedTransactions);
+      saveToLocalStorage('finance_transactions', updatedTransactions);
+    }
+  };
+
+  const getCurrentMonthExpenses = () => {
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    return transactions
+      .filter(t => t.type === 'expense' && t.date.startsWith(currentMonth) && t.responsibleType === 'eu')
+      .reduce((sum, t) => sum + t.amount, 0);
+  };
+
+  const getCurrentMonthIncome = () => {
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    return transactions
+      .filter(t => t.type === 'income' && t.date.startsWith(currentMonth) && t.recipient === 'eu')
+      .reduce((sum, t) => sum + t.amount, 0);
+  };
+
+  const getCardExpenses = (cardId: string, month?: string) => {
+    const targetMonth = month || new Date().toISOString().substring(0, 7);
+    return transactions
+      .filter(t => t.type === 'expense' && t.cardId === cardId && t.date.startsWith(targetMonth))
+      .reduce((sum, t) => sum + t.amount, 0);
+  };
+
+  const getThirdPartyBalance = (thirdPartyId: string) => {
+    return receivables
+      .filter(r => r.thirdPartyId === thirdPartyId && r.status !== 'pago')
+      .reduce((sum, r) => sum + (r.amount - r.paidAmount), 0);
+  };
+
+  const value: FinanceContextType = {
+    thirdParties,
+    addThirdParty,
+    updateThirdParty,
+    deleteThirdParty,
+    cards,
+    addCard,
+    updateCard,
+    deleteCard,
+    transactions,
+    addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    receivables,
+    recordPayment,
+    getCurrentMonthExpenses,
+    getCurrentMonthIncome,
+    getCardExpenses,
+    getThirdPartyBalance
+  };
+
+  return (
+    <FinanceContext.Provider value={value}>
+      {children}
+    </FinanceContext.Provider>
+  );
+};
