@@ -7,6 +7,30 @@ export interface ThirdParty {
   userId: string;
 }
 
+export interface BankAccount {
+  id: string;
+  accountName: string;
+  bankName: string;
+  accountType: 'conta_corrente' | 'conta_poupanca' | 'conta_pagamentos' | 'outra';
+  initialBalance: number;
+  initialBalanceDate: string;
+  identificationColor?: string;
+  userId: string;
+}
+
+export interface CreditCard {
+  id: string;
+  cardName: string;
+  cardBrand?: 'visa' | 'mastercard' | 'elo' | 'amex' | 'outra';
+  issuer?: string;
+  closingDay: number;
+  dueDay: number;
+  cardLimit?: number;
+  identificationColor?: string;
+  userId: string;
+}
+
+// Legacy Card interface for backward compatibility
 export interface Card {
   id: string;
   name: string;
@@ -24,6 +48,8 @@ export interface Transaction {
   // Campos específicos para despesas
   paymentMethod?: 'credito' | 'debito' | 'pix' | 'dinheiro';
   cardId?: string;
+  bankAccountId?: string;
+  creditCardId?: string;
   responsibleType?: 'eu' | 'conjuge' | 'terceiro';
   thirdPartyId?: string;
   isInstallment?: boolean;
@@ -58,7 +84,21 @@ interface FinanceContextType {
   updateThirdParty: (id: string, name: string) => void;
   deleteThirdParty: (id: string) => void;
   
-  // Cards
+  // Bank Accounts
+  bankAccounts: BankAccount[];
+  addBankAccount: (account: Omit<BankAccount, 'id' | 'userId'>) => void;
+  updateBankAccount: (id: string, account: Partial<BankAccount>) => void;
+  deleteBankAccount: (id: string) => boolean;
+  getBankAccountBalance: (accountId: string) => number;
+  
+  // Credit Cards
+  creditCards: CreditCard[];
+  addCreditCard: (card: Omit<CreditCard, 'id' | 'userId'>) => void;
+  updateCreditCard: (id: string, card: Partial<CreditCard>) => void;
+  deleteCreditCard: (id: string) => boolean;
+  getCreditCardCurrentBill: (cardId: string) => number;
+  
+  // Legacy Cards (for backward compatibility)
   cards: Card[];
   addCard: (name: string) => void;
   updateCard: (id: string, name: string) => void;
@@ -94,6 +134,8 @@ export const useFinance = () => {
 export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [thirdParties, setThirdParties] = useState<ThirdParty[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [receivables, setReceivables] = useState<Receivable[]>([]);
@@ -102,11 +144,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     if (user) {
       const savedThirdParties = localStorage.getItem(`finance_third_parties_${user.id}`);
+      const savedBankAccounts = localStorage.getItem(`finance_bank_accounts_${user.id}`);
+      const savedCreditCards = localStorage.getItem(`finance_credit_cards_${user.id}`);
       const savedCards = localStorage.getItem(`finance_cards_${user.id}`);
       const savedTransactions = localStorage.getItem(`finance_transactions_${user.id}`);
       const savedReceivables = localStorage.getItem(`finance_receivables_${user.id}`);
 
       if (savedThirdParties) setThirdParties(JSON.parse(savedThirdParties));
+      if (savedBankAccounts) setBankAccounts(JSON.parse(savedBankAccounts));
+      if (savedCreditCards) setCreditCards(JSON.parse(savedCreditCards));
       if (savedCards) setCards(JSON.parse(savedCards));
       if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
       if (savedReceivables) setReceivables(JSON.parse(savedReceivables));
@@ -120,6 +166,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  // Third Parties functions
   const addThirdParty = (name: string) => {
     if (!user) return;
     const newThirdParty: ThirdParty = {
@@ -144,6 +191,174 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     saveToLocalStorage('finance_third_parties', updated);
   };
 
+  // Bank Accounts functions
+  const addBankAccount = (account: Omit<BankAccount, 'id' | 'userId'>) => {
+    if (!user) return;
+    
+    // Check for unique account name
+    const existingAccount = bankAccounts.find(acc => acc.accountName.toLowerCase() === account.accountName.toLowerCase());
+    if (existingAccount) {
+      throw new Error('Já existe uma conta com este nome');
+    }
+    
+    const newAccount: BankAccount = {
+      ...account,
+      id: Date.now().toString(),
+      userId: user.id
+    };
+    const updated = [...bankAccounts, newAccount];
+    setBankAccounts(updated);
+    saveToLocalStorage('finance_bank_accounts', updated);
+  };
+
+  const updateBankAccount = (id: string, account: Partial<BankAccount>) => {
+    // Check for unique account name if name is being updated
+    if (account.accountName) {
+      const existingAccount = bankAccounts.find(acc => 
+        acc.id !== id && acc.accountName.toLowerCase() === account.accountName.toLowerCase()
+      );
+      if (existingAccount) {
+        throw new Error('Já existe uma conta com este nome');
+      }
+    }
+    
+    const updated = bankAccounts.map(acc => {
+      if (acc.id === id) {
+        // Don't allow updating initialBalance and initialBalanceDate after creation
+        const { initialBalance, initialBalanceDate, ...updateData } = account;
+        return { ...acc, ...updateData };
+      }
+      return acc;
+    });
+    setBankAccounts(updated);
+    saveToLocalStorage('finance_bank_accounts', updated);
+  };
+
+  const deleteBankAccount = (id: string): boolean => {
+    // Check if there are transactions associated
+    const associatedTransactions = transactions.filter(t => t.bankAccountId === id);
+    
+    if (associatedTransactions.length > 0) {
+      // Update transactions to remove the account association
+      const updatedTransactions = transactions.map(t => 
+        t.bankAccountId === id ? { ...t, bankAccountId: undefined } : t
+      );
+      setTransactions(updatedTransactions);
+      saveToLocalStorage('finance_transactions', updatedTransactions);
+    }
+    
+    const updated = bankAccounts.filter(acc => acc.id !== id);
+    setBankAccounts(updated);
+    saveToLocalStorage('finance_bank_accounts', updated);
+    
+    return associatedTransactions.length > 0;
+  };
+
+  const getBankAccountBalance = (accountId: string): number => {
+    const account = bankAccounts.find(acc => acc.id === accountId);
+    if (!account) return 0;
+    
+    const accountTransactions = transactions.filter(t => t.bankAccountId === accountId);
+    const income = accountTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+    const expenses = accountTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    return account.initialBalance + income - expenses;
+  };
+
+  // Credit Cards functions
+  const addCreditCard = (card: Omit<CreditCard, 'id' | 'userId'>) => {
+    if (!user) return;
+    
+    // Check for unique card name
+    const existingCard = creditCards.find(c => c.cardName.toLowerCase() === card.cardName.toLowerCase());
+    if (existingCard) {
+      throw new Error('Já existe um cartão com este nome');
+    }
+    
+    const newCard: CreditCard = {
+      ...card,
+      id: Date.now().toString(),
+      userId: user.id
+    };
+    const updated = [...creditCards, newCard];
+    setCreditCards(updated);
+    saveToLocalStorage('finance_credit_cards', updated);
+  };
+
+  const updateCreditCard = (id: string, card: Partial<CreditCard>) => {
+    // Check for unique card name if name is being updated
+    if (card.cardName) {
+      const existingCard = creditCards.find(c => 
+        c.id !== id && c.cardName.toLowerCase() === card.cardName.toLowerCase()
+      );
+      if (existingCard) {
+        throw new Error('Já existe um cartão com este nome');
+      }
+    }
+    
+    const updated = creditCards.map(c => c.id === id ? { ...c, ...card } : c);
+    setCreditCards(updated);
+    saveToLocalStorage('finance_credit_cards', updated);
+  };
+
+  const deleteCreditCard = (id: string): boolean => {
+    // Check if there are transactions associated
+    const associatedTransactions = transactions.filter(t => t.creditCardId === id);
+    
+    if (associatedTransactions.length > 0) {
+      // Update transactions to remove the card association
+      const updatedTransactions = transactions.map(t => 
+        t.creditCardId === id ? { ...t, creditCardId: undefined } : t
+      );
+      setTransactions(updatedTransactions);
+      saveToLocalStorage('finance_transactions', updatedTransactions);
+    }
+    
+    const updated = creditCards.filter(c => c.id !== id);
+    setCreditCards(updated);
+    saveToLocalStorage('finance_credit_cards', updated);
+    
+    return associatedTransactions.length > 0;
+  };
+
+  const getCreditCardCurrentBill = (cardId: string): number => {
+    const card = creditCards.find(c => c.id === cardId);
+    if (!card) return 0;
+    
+    // Calculate current bill based on closing day
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    // Determine the billing cycle
+    let billingStart: Date;
+    let billingEnd: Date;
+    
+    if (now.getDate() >= card.closingDay) {
+      // Current billing cycle
+      billingStart = new Date(currentYear, currentMonth, card.closingDay);
+      billingEnd = new Date(currentYear, currentMonth + 1, card.closingDay);
+    } else {
+      // Previous billing cycle
+      billingStart = new Date(currentYear, currentMonth - 1, card.closingDay);
+      billingEnd = new Date(currentYear, currentMonth, card.closingDay);
+    }
+    
+    const cardTransactions = transactions.filter(t => 
+      t.creditCardId === cardId && 
+      t.type === 'expense' &&
+      new Date(t.date) >= billingStart && 
+      new Date(t.date) < billingEnd
+    );
+    
+    return cardTransactions.reduce((sum, t) => sum + t.amount, 0);
+  };
+
+  // Legacy Cards functions (for backward compatibility)
   const addCard = (name: string) => {
     if (!user) return;
     const newCard: Card = {
@@ -168,6 +383,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     saveToLocalStorage('finance_cards', updated);
   };
 
+  // Transactions functions
   const addTransaction = (transaction: Omit<Transaction, 'id' | 'userId'>) => {
     if (!user) return;
     
@@ -230,6 +446,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     saveToLocalStorage('finance_transactions', updated);
   };
 
+  // Receivables functions
   const recordPayment = (receivableId: string, amount: number) => {
     const updated = receivables.map(r => {
       if (r.id === receivableId) {
@@ -265,6 +482,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  // Analytics functions
   const getCurrentMonthExpenses = () => {
     const currentMonth = new Date().toISOString().substring(0, 7);
     return transactions
@@ -297,6 +515,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     addThirdParty,
     updateThirdParty,
     deleteThirdParty,
+    bankAccounts,
+    addBankAccount,
+    updateBankAccount,
+    deleteBankAccount,
+    getBankAccountBalance,
+    creditCards,
+    addCreditCard,
+    updateCreditCard,
+    deleteCreditCard,
+    getCreditCardCurrentBill,
     cards,
     addCard,
     updateCard,

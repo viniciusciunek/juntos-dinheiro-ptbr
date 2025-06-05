@@ -7,6 +7,7 @@ import RegisterScreen from '@/components/auth/RegisterScreen';
 import Navigation from '@/components/layout/Navigation';
 import DashboardScreen from '@/components/dashboard/DashboardScreen';
 import AddTransactionScreen from '@/components/transactions/AddTransactionScreen';
+import AccountsScreen from '@/components/accounts/AccountsScreen';
 
 const AuthWrapper: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -33,7 +34,7 @@ const MainApp: React.FC = () => {
       case 'add-transaction':
         return <AddTransactionScreen />;
       case 'cards':
-        return <div className="p-4 pb-20"><h2 className="text-xl font-bold">Cartões (Em desenvolvimento)</h2></div>;
+        return <AccountsScreen />;
       case 'third-parties':
         return <div className="p-4 pb-20"><h2 className="text-xl font-bold">Terceiros (Em desenvolvimento)</h2></div>;
       case 'receivables':
