@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 
+export interface Category {
+  id: string;
+  name: string;
+  icon?: string;
+  color?: string;
+  userId: string;
+}
+
 export interface ThirdParty {
   id: string;
   name: string;
@@ -57,7 +65,7 @@ export interface Transaction {
   isInstallment?: boolean;
   currentInstallment?: number;
   totalInstallments?: number;
-  category?: string;
+  categoryId?: string; // Nova propriedade para categoria
   
   // Campos específicos para receitas
   source?: string;
@@ -80,6 +88,12 @@ export interface Receivable {
 }
 
 interface FinanceContextType {
+  // Categories
+  categories: Category[];
+  addCategory: (category: Omit<Category, 'id' | 'userId'>) => void;
+  updateCategory: (id: string, category: Partial<Omit<Category, 'id' | 'userId'>>) => void;
+  deleteCategory: (id: string) => boolean;
+  
   // Third Parties
   thirdParties: ThirdParty[];
   addThirdParty: (thirdParty: Omit<ThirdParty, 'id' | 'userId'>) => void;
@@ -135,6 +149,7 @@ export const useFinance = () => {
 
 export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const [categories, setCategories] = useState<Category[]>([]);
   const [thirdParties, setThirdParties] = useState<ThirdParty[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
@@ -145,6 +160,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Carregar dados do localStorage
   useEffect(() => {
     if (user) {
+      const savedCategories = localStorage.getItem(`finance_categories_${user.id}`);
       const savedThirdParties = localStorage.getItem(`finance_third_parties_${user.id}`);
       const savedBankAccounts = localStorage.getItem(`finance_bank_accounts_${user.id}`);
       const savedCreditCards = localStorage.getItem(`finance_credit_cards_${user.id}`);
@@ -152,6 +168,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const savedTransactions = localStorage.getItem(`finance_transactions_${user.id}`);
       const savedReceivables = localStorage.getItem(`finance_receivables_${user.id}`);
 
+      if (savedCategories) setCategories(JSON.parse(savedCategories));
       if (savedThirdParties) setThirdParties(JSON.parse(savedThirdParties));
       if (savedBankAccounts) setBankAccounts(JSON.parse(savedBankAccounts));
       if (savedCreditCards) setCreditCards(JSON.parse(savedCreditCards));
@@ -166,6 +183,59 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (user) {
       localStorage.setItem(`${key}_${user.id}`, JSON.stringify(data));
     }
+  };
+
+  // Categories functions
+  const addCategory = (categoryData: Omit<Category, 'id' | 'userId'>) => {
+    if (!user) return;
+    
+    // Check for unique name
+    const existingCategory = categories.find(cat => 
+      cat.name.toLowerCase() === categoryData.name.toLowerCase()
+    );
+    if (existingCategory) {
+      throw new Error('Já existe uma categoria com este nome');
+    }
+    
+    const newCategory: Category = {
+      ...categoryData,
+      id: Date.now().toString(),
+      userId: user.id
+    };
+    const updated = [...categories, newCategory];
+    setCategories(updated);
+    saveToLocalStorage('finance_categories', updated);
+  };
+
+  const updateCategory = (id: string, categoryData: Partial<Omit<Category, 'id' | 'userId'>>) => {
+    // Check for unique name if name is being updated
+    if (categoryData.name) {
+      const existingCategory = categories.find(cat => 
+        cat.id !== id && cat.name.toLowerCase() === categoryData.name.toLowerCase()
+      );
+      if (existingCategory) {
+        throw new Error('Já existe uma categoria com este nome');
+      }
+    }
+    
+    const updated = categories.map(cat => cat.id === id ? { ...cat, ...categoryData } : cat);
+    setCategories(updated);
+    saveToLocalStorage('finance_categories', updated);
+  };
+
+  const deleteCategory = (id: string): boolean => {
+    // Check if there are transactions associated
+    const associatedTransactions = transactions.filter(t => t.categoryId === id);
+    
+    if (associatedTransactions.length > 0) {
+      throw new Error(`Não é possível excluir a categoria, pois ela está em uso por ${associatedTransactions.length} transações. Por favor, reatribua essas transações a outra categoria antes de excluir.`);
+    }
+    
+    const updated = categories.filter(cat => cat.id !== id);
+    setCategories(updated);
+    saveToLocalStorage('finance_categories', updated);
+    
+    return true;
   };
 
   // Third Parties functions
@@ -432,6 +502,34 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     }
 
+    // Atualizar fonte de pagamento baseado no tipo
+    if (transaction.type === 'expense') {
+      // Se for conta bancária (débito, PIX, dinheiro)
+      if (transaction.bankAccountId) {
+        const updatedAccounts = bankAccounts.map(acc => {
+          if (acc.id === transaction.bankAccountId) {
+            // Subtrair o valor do saldo (para despesas)
+            return { ...acc };
+          }
+          return acc;
+        });
+        setBankAccounts(updatedAccounts);
+        saveToLocalStorage('finance_bank_accounts', updatedAccounts);
+      }
+      
+      // Se for cartão de crédito
+      if (transaction.creditCardId) {
+        const updatedCards = creditCards.map(card => {
+          if (card.id === transaction.creditCardId) {
+            // A fatura será calculada dinamicamente, não precisa atualizar aqui
+            return card;
+          }
+          return card;
+        });
+        setCreditCards(updatedCards);
+      }
+    }
+
     // Se a despesa é de um terceiro, criar um receivable
     if (transaction.type === 'expense' && transaction.responsibleType === 'terceiro' && transaction.thirdPartyId) {
       const newReceivable: Receivable = {
@@ -536,6 +634,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const value: FinanceContextType = {
+    categories,
+    addCategory,
+    updateCategory,
+    deleteCategory,
     thirdParties,
     addThirdParty,
     updateThirdParty,

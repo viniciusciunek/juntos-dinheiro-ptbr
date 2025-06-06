@@ -9,7 +9,13 @@ import { useFinance } from '@/contexts/FinanceContext';
 import { toast } from '@/hooks/use-toast';
 
 const AddTransactionScreen: React.FC = () => {
-  const { cards, thirdParties, addTransaction } = useFinance();
+  const { 
+    bankAccounts, 
+    creditCards, 
+    thirdParties, 
+    categories, 
+    addTransaction 
+  } = useFinance();
   
   const [transactionType, setTransactionType] = useState<'expense' | 'income'>('expense');
   const [description, setDescription] = useState('');
@@ -17,13 +23,14 @@ const AddTransactionScreen: React.FC = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   
   // Campos para despesas
-  const [paymentMethod, setPaymentMethod] = useState<'credito' | 'debito' | 'pix' | 'dinheiro'>('credito');
-  const [cardId, setCardId] = useState('');
+  const [paymentSourceType, setPaymentSourceType] = useState<'bank' | 'credit'>('credit');
+  const [bankAccountId, setBankAccountId] = useState('');
+  const [creditCardId, setCreditCardId] = useState('');
   const [responsibleType, setResponsibleType] = useState<'eu' | 'conjuge' | 'terceiro'>('eu');
   const [thirdPartyId, setThirdPartyId] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const [isInstallment, setIsInstallment] = useState(false);
   const [totalInstallments, setTotalInstallments] = useState('');
-  const [category, setCategory] = useState('');
   
   // Campos para receitas
   const [source, setSource] = useState('');
@@ -33,16 +40,20 @@ const AddTransactionScreen: React.FC = () => {
     setDescription('');
     setAmount('');
     setDate(new Date().toISOString().split('T')[0]);
-    setPaymentMethod('credito');
-    setCardId('');
+    setPaymentSourceType('credit');
+    setBankAccountId('');
+    setCreditCardId('');
     setResponsibleType('eu');
     setThirdPartyId('');
+    setCategoryId('');
     setIsInstallment(false);
     setTotalInstallments('');
-    setCategory('');
     setSource('');
     setRecipient('eu');
   };
+
+  const showCategoryField = transactionType === 'expense' && 
+    (responsibleType === 'eu' || responsibleType === 'conjuge');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,22 +67,45 @@ const AddTransactionScreen: React.FC = () => {
       return;
     }
 
-    if (transactionType === 'expense' && paymentMethod === 'credito' && !cardId) {
-      toast({
-        title: "Erro",
-        description: "Selecione um cartão para pagamentos no crédito.",
-        variant: "destructive"
-      });
-      return;
-    }
+    if (transactionType === 'expense') {
+      // Validar fonte de pagamento
+      if (paymentSourceType === 'credit' && !creditCardId) {
+        toast({
+          title: "Erro",
+          description: "Selecione um cartão de crédito.",
+          variant: "destructive"
+        });
+        return;
+      }
 
-    if (transactionType === 'expense' && responsibleType === 'terceiro' && !thirdPartyId) {
-      toast({
-        title: "Erro",
-        description: "Selecione o terceiro responsável pela despesa.",
-        variant: "destructive"
-      });
-      return;
+      if (paymentSourceType === 'bank' && !bankAccountId) {
+        toast({
+          title: "Erro",
+          description: "Selecione uma conta bancária.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validar terceiro
+      if (responsibleType === 'terceiro' && !thirdPartyId) {
+        toast({
+          title: "Erro",
+          description: "Selecione o terceiro responsável pela despesa.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validar categoria para gastos pessoais
+      if (showCategoryField && !categoryId) {
+        toast({
+          title: "Erro",
+          description: "Selecione uma categoria para este gasto.",
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     const transactionData: any = {
@@ -82,16 +116,24 @@ const AddTransactionScreen: React.FC = () => {
     };
 
     if (transactionType === 'expense') {
-      transactionData.paymentMethod = paymentMethod;
       transactionData.responsibleType = responsibleType;
-      transactionData.category = category;
       
-      if (paymentMethod === 'credito') {
-        transactionData.cardId = cardId;
+      // Definir fonte de pagamento
+      if (paymentSourceType === 'credit') {
+        transactionData.paymentMethod = 'credito';
+        transactionData.creditCardId = creditCardId;
+      } else {
+        transactionData.paymentMethod = 'debito'; // Pode ser débito, PIX ou dinheiro
+        transactionData.bankAccountId = bankAccountId;
       }
       
       if (responsibleType === 'terceiro') {
         transactionData.thirdPartyId = thirdPartyId;
+      }
+      
+      // Categoria só para gastos pessoais (eu ou cônjuge)
+      if (showCategoryField) {
+        transactionData.categoryId = categoryId;
       }
       
       if (isInstallment && totalInstallments) {
@@ -102,16 +144,25 @@ const AddTransactionScreen: React.FC = () => {
     } else {
       transactionData.source = source;
       transactionData.recipient = recipient;
+      transactionData.bankAccountId = bankAccountId; // Receitas sempre vão para uma conta
     }
 
-    addTransaction(transactionData);
-    
-    toast({
-      title: "Sucesso!",
-      description: `${transactionType === 'expense' ? 'Despesa' : 'Receita'} adicionada com sucesso.`,
-    });
-    
-    resetForm();
+    try {
+      addTransaction(transactionData);
+      
+      toast({
+        title: "Sucesso!",
+        description: `${transactionType === 'expense' ? 'Despesa' : 'Receita'} adicionada com sucesso.`,
+      });
+      
+      resetForm();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -179,40 +230,66 @@ const AddTransactionScreen: React.FC = () => {
             {transactionType === 'expense' && (
               <>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Forma de Pagamento</label>
-                  <Select value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="credito">Crédito</SelectItem>
-                      <SelectItem value="debito">Débito</SelectItem>
-                      <SelectItem value="pix">PIX</SelectItem>
-                      <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <label className="text-sm font-medium">Paga com *</label>
+                  <div className="space-y-3">
+                    {/* Seletor de Tipo de Fonte */}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={paymentSourceType === 'credit' ? 'default' : 'outline'}
+                        onClick={() => setPaymentSourceType('credit')}
+                        className="flex-1"
+                        size="sm"
+                      >
+                        Cartão de Crédito
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={paymentSourceType === 'bank' ? 'default' : 'outline'}
+                        onClick={() => setPaymentSourceType('bank')}
+                        className="flex-1"
+                        size="sm"
+                      >
+                        Conta Bancária
+                      </Button>
+                    </div>
+
+                    {/* Dropdown de Cartões */}
+                    {paymentSourceType === 'credit' && (
+                      <Select value={creditCardId} onValueChange={setCreditCardId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um cartão de crédito" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {creditCards.map((card) => (
+                            <SelectItem key={card.id} value={card.id}>
+                              {card.cardName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+
+                    {/* Dropdown de Contas */}
+                    {paymentSourceType === 'bank' && (
+                      <Select value={bankAccountId} onValueChange={setBankAccountId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione uma conta bancária" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {bankAccounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.accountName} - {account.bankName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
                 </div>
 
-                {paymentMethod === 'credito' && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Cartão *</label>
-                    <Select value={cardId} onValueChange={setCardId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um cartão" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {cards.map((card) => (
-                          <SelectItem key={card.id} value={card.id}>
-                            {card.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Responsável</label>
+                  <label className="text-sm font-medium">Responsável pelo Gasto *</label>
                   <Select value={responsibleType} onValueChange={(value: any) => setResponsibleType(value)}>
                     <SelectTrigger>
                       <SelectValue />
@@ -220,7 +297,11 @@ const AddTransactionScreen: React.FC = () => {
                     <SelectContent>
                       <SelectItem value="eu">Eu</SelectItem>
                       <SelectItem value="conjuge">Meu Cônjuge</SelectItem>
-                      <SelectItem value="terceiro">Terceiro</SelectItem>
+                      {thirdParties.map((tp) => (
+                        <SelectItem key={tp.id} value="terceiro" onClick={() => setThirdPartyId(tp.id)}>
+                          {tp.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -243,14 +324,32 @@ const AddTransactionScreen: React.FC = () => {
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Categoria</label>
-                  <Input
-                    placeholder="Ex: Alimentação, Transporte, Lazer"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                  />
-                </div>
+                {/* Campo Categoria - Só aparece para gastos pessoais */}
+                {showCategoryField && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Categoria *</label>
+                    <Select value={categoryId} onValueChange={setCategoryId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione uma categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            <div className="flex items-center space-x-2">
+                              {category.icon && <span>{category.icon}</span>}
+                              <span>{category.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {categories.length === 0 && (
+                      <p className="text-xs text-gray-500">
+                        Nenhuma categoria cadastrada. Acesse a seção "Categorias" para criar uma.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex items-center space-x-2">
                   <Switch
@@ -298,6 +397,22 @@ const AddTransactionScreen: React.FC = () => {
                     <SelectContent>
                       <SelectItem value="eu">Eu</SelectItem>
                       <SelectItem value="conjuge">Meu Cônjuge</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Conta de Destino *</label>
+                  <Select value={bankAccountId} onValueChange={setBankAccountId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a conta que receberá o dinheiro" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bankAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.accountName} - {account.bankName}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
