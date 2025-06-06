@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useFinance } from '@/contexts/FinanceContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { CreditCard, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { CreditCard, TrendingUp, TrendingDown, DollarSign, CalendarCheck } from 'lucide-react';
 
 const DashboardScreen: React.FC = () => {
   const { 
@@ -12,13 +12,15 @@ const DashboardScreen: React.FC = () => {
     cards, 
     getCardExpenses,
     receivables,
-    thirdParties 
+    thirdParties,
+    getCurrentMonthReceivables
   } = useFinance();
   const { user } = useAuth();
 
   const currentMonthExpenses = getCurrentMonthExpenses();
   const currentMonthIncome = getCurrentMonthIncome();
   const monthlyBalance = currentMonthIncome - currentMonthExpenses;
+  const currentMonthReceivables = getCurrentMonthReceivables();
 
   const totalToReceive = receivables
     .filter(r => r.status !== 'pago')
@@ -77,6 +79,40 @@ const DashboardScreen: React.FC = () => {
         </Card>
       </div>
 
+      {/* Valores a Receber */}
+      {currentMonthReceivables.total > 0 && (
+        <Card className="shadow-card border-l-4 border-finance-blue">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-finance-blue">
+              <CalendarCheck className="h-5 w-5" />
+              Valores a Receber - {new Date().toLocaleDateString('pt-BR', { month: 'long' })}
+            </CardTitle>
+            <CardDescription>
+              Dinheiro esperado para este mês
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-finance-blue mb-3">
+              {formatCurrency(currentMonthReceivables.total)}
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="bg-finance-orange-light p-3 rounded-lg">
+                <div className="font-medium text-finance-orange">Dívidas de Terceiros</div>
+                <div className="text-lg font-bold text-finance-orange">
+                  {formatCurrency(currentMonthReceivables.thirdPartyDebt)}
+                </div>
+              </div>
+              <div className="bg-finance-blue-light p-3 rounded-lg">
+                <div className="font-medium text-finance-blue">Receitas Agendadas</div>
+                <div className="text-lg font-bold text-finance-blue">
+                  {formatCurrency(currentMonthReceivables.scheduledIncomes)}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Gastos por Cartão */}
       {cards.length > 0 && (
         <Card className="shadow-card">
@@ -102,41 +138,6 @@ const DashboardScreen: React.FC = () => {
         </Card>
       )}
 
-      {/* Valores a Receber */}
-      {totalToReceive > 0 && (
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="text-finance-orange">
-              💰 Total a Receber: {formatCurrency(totalToReceive)}
-            </CardTitle>
-            <CardDescription>
-              Valores pendentes de terceiros
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {receivables
-                .filter(r => r.status !== 'pago')
-                .map((receivable) => {
-                  const thirdParty = thirdParties.find(tp => tp.id === receivable.thirdPartyId);
-                  const pendingAmount = receivable.amount - receivable.paidAmount;
-                  
-                  return (
-                    <div key={receivable.id} className="flex justify-between items-center p-2 border-l-4 border-finance-orange bg-finance-orange-light">
-                      <span className="text-sm font-medium">
-                        {thirdParty?.name || 'Terceiro'}
-                      </span>
-                      <span className="text-sm font-bold text-finance-orange">
-                        {formatCurrency(pendingAmount)}
-                      </span>
-                    </div>
-                  );
-                })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Dicas e Próximos Passos */}
       <Card className="shadow-card border-l-4 border-finance-blue">
         <CardHeader>
@@ -151,6 +152,7 @@ const DashboardScreen: React.FC = () => {
               <li>• Adicione familiares/amigos na aba "Terceiros"</li>
             )}
             <li>• Use a aba "Adicionar" para registrar suas transações</li>
+            <li>• Agende receitas futuras em "A Receber"</li>
             {!user?.partnerId && (
               <li>• Convide seu cônjuge em "Configurações" para visão familiar</li>
             )}

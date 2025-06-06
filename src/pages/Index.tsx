@@ -10,6 +10,7 @@ import AddTransactionScreen from '@/components/transactions/AddTransactionScreen
 import AccountsScreen from '@/components/accounts/AccountsScreen';
 import ThirdPartiesScreen from '@/components/third-parties/ThirdPartiesScreen';
 import CategoriesScreen from '@/components/categories/CategoriesScreen';
+import ReceivablesScreen from '@/components/receivables/ReceivablesScreen';
 
 const AuthWrapper: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -42,7 +43,7 @@ const MainApp: React.FC = () => {
       case 'categories':
         return <CategoriesScreen />;
       case 'receivables':
-        return <div className="p-4 pb-20"><h2 className="text-xl font-bold">Valores a Receber (Em desenvolvimento)</h2></div>;
+        return <ReceivablesScreen />;
       case 'family':
         return <div className="p-4 pb-20"><h2 className="text-xl font-bold">Finanças da Família (Em desenvolvimento)</h2></div>;
       case 'settings':

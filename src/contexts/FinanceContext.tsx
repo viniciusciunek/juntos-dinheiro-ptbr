@@ -87,6 +87,16 @@ export interface Receivable {
   userId: string;
 }
 
+export interface ScheduledIncome {
+  id: string;
+  userId: string;
+  description: string;
+  amount: number;
+  expectedDate: string;
+  status: 'pendente' | 'recebido';
+  notes?: string;
+}
+
 interface FinanceContextType {
   // Categories
   categories: Category[];
@@ -130,11 +140,21 @@ interface FinanceContextType {
   receivables: Receivable[];
   recordPayment: (receivableId: string, amount: number, accountId?: string) => void;
   
+  // Scheduled Incomes
+  scheduledIncomes: ScheduledIncome[];
+  addScheduledIncome: (income: Omit<ScheduledIncome, 'id' | 'userId'>) => void;
+  updateScheduledIncome: (id: string, income: Partial<ScheduledIncome>) => void;
+  deleteScheduledIncome: (id: string) => void;
+  confirmScheduledIncomeReceipt: (id: string, amount: number, date: string, accountId: string) => void;
+  
   // Analytics
   getCurrentMonthExpenses: () => number;
   getCurrentMonthIncome: () => number;
   getCardExpenses: (cardId: string, month?: string) => number;
   getThirdPartyBalance: (thirdPartyId: string) => number;
+  
+  // Analytics for Receivables
+  getCurrentMonthReceivables: () => { thirdPartyDebt: number; scheduledIncomes: number; total: number };
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -156,6 +176,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [cards, setCards] = useState<Card[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [receivables, setReceivables] = useState<Receivable[]>([]);
+  const [scheduledIncomes, setScheduledIncomes] = useState<ScheduledIncome[]>([]);
 
   // Carregar dados do localStorage
   useEffect(() => {
@@ -167,7 +188,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const savedCards = localStorage.getItem(`finance_cards_${user.id}`);
       const savedTransactions = localStorage.getItem(`finance_transactions_${user.id}`);
       const savedReceivables = localStorage.getItem(`finance_receivables_${user.id}`);
-
+      const savedScheduledIncomes = localStorage.getItem(`finance_scheduled_incomes_${user.id}`);
+      
       if (savedCategories) setCategories(JSON.parse(savedCategories));
       if (savedThirdParties) setThirdParties(JSON.parse(savedThirdParties));
       if (savedBankAccounts) setBankAccounts(JSON.parse(savedBankAccounts));
@@ -175,6 +197,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (savedCards) setCards(JSON.parse(savedCards));
       if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
       if (savedReceivables) setReceivables(JSON.parse(savedReceivables));
+      if (savedScheduledIncomes) setScheduledIncomes(JSON.parse(savedScheduledIncomes));
     }
   }, [user]);
 
@@ -605,6 +628,64 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  // Scheduled Incomes functions
+  const addScheduledIncome = (incomeData: Omit<ScheduledIncome, 'id' | 'userId'>) => {
+    if (!user) return;
+    
+    const newIncome: ScheduledIncome = {
+      ...incomeData,
+      id: Date.now().toString(),
+      userId: user.id,
+      status: 'pendente'
+    };
+    const updated = [...scheduledIncomes, newIncome];
+    setScheduledIncomes(updated);
+    saveToLocalStorage('finance_scheduled_incomes', updated);
+  };
+
+  const updateScheduledIncome = (id: string, incomeData: Partial<ScheduledIncome>) => {
+    const updated = scheduledIncomes.map(income => income.id === id ? { ...income, ...incomeData } : income);
+    setScheduledIncomes(updated);
+    saveToLocalStorage('finance_scheduled_incomes', updated);
+  };
+
+  const deleteScheduledIncome = (id: string) => {
+    const updated = scheduledIncomes.filter(income => income.id !== id);
+    setScheduledIncomes(updated);
+    saveToLocalStorage('finance_scheduled_incomes', updated);
+  };
+
+  const confirmScheduledIncomeReceipt = (id: string, amount: number, date: string, accountId: string) => {
+    if (!user) return;
+    
+    // Create income transaction
+    const scheduledIncome = scheduledIncomes.find(si => si.id === id);
+    if (!scheduledIncome) return;
+    
+    const incomeTransaction: Transaction = {
+      id: `scheduled_income_${Date.now()}`,
+      description: `Recebimento: ${scheduledIncome.description}`,
+      amount,
+      date,
+      type: 'income',
+      source: 'Receita Agendada',
+      recipient: 'eu',
+      userId: user.id,
+      bankAccountId: accountId
+    };
+    
+    const updatedTransactions = [...transactions, incomeTransaction];
+    setTransactions(updatedTransactions);
+    saveToLocalStorage('finance_transactions', updatedTransactions);
+    
+    // Update scheduled income status
+    const updatedScheduledIncomes = scheduledIncomes.map(si => 
+      si.id === id ? { ...si, status: 'recebido' as const } : si
+    );
+    setScheduledIncomes(updatedScheduledIncomes);
+    saveToLocalStorage('finance_scheduled_incomes', updatedScheduledIncomes);
+  };
+
   // Analytics functions
   const getCurrentMonthExpenses = () => {
     const currentMonth = new Date().toISOString().substring(0, 7);
@@ -631,6 +712,26 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return receivables
       .filter(r => r.thirdPartyId === thirdPartyId && r.status !== 'pago')
       .reduce((sum, r) => sum + (r.amount - r.paidAmount), 0);
+  };
+
+  const getCurrentMonthReceivables = () => {
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    
+    // Third party debts for current month
+    const thirdPartyDebt = receivables
+      .filter(r => r.status !== 'pago' && r.dueDate.startsWith(currentMonth))
+      .reduce((sum, r) => sum + (r.amount - r.paidAmount), 0);
+    
+    // Scheduled incomes for current month
+    const scheduledIncomesAmount = scheduledIncomes
+      .filter(si => si.status === 'pendente' && si.expectedDate.startsWith(currentMonth))
+      .reduce((sum, si) => sum + si.amount, 0);
+    
+    return {
+      thirdPartyDebt,
+      scheduledIncomes: scheduledIncomesAmount,
+      total: thirdPartyDebt + scheduledIncomesAmount
+    };
   };
 
   const value: FinanceContextType = {
@@ -665,7 +766,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     getCurrentMonthExpenses,
     getCurrentMonthIncome,
     getCardExpenses,
-    getThirdPartyBalance
+    getThirdPartyBalance,
+    scheduledIncomes,
+    addScheduledIncome,
+    updateScheduledIncome,
+    deleteScheduledIncome,
+    confirmScheduledIncomeReceipt,
+    getCurrentMonthReceivables
   };
 
   return (
