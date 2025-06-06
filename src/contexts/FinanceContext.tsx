@@ -525,48 +525,26 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     }
 
-    // Atualizar fonte de pagamento baseado no tipo
-    if (transaction.type === 'expense') {
-      // Se for conta bancária (débito, PIX, dinheiro)
-      if (transaction.bankAccountId) {
-        const updatedAccounts = bankAccounts.map(acc => {
-          if (acc.id === transaction.bankAccountId) {
-            // Subtrair o valor do saldo (para despesas)
-            return { ...acc };
-          }
-          return acc;
-        });
-        setBankAccounts(updatedAccounts);
-        saveToLocalStorage('finance_bank_accounts', updatedAccounts);
-      }
-      
-      // Se for cartão de crédito
-      if (transaction.creditCardId) {
-        const updatedCards = creditCards.map(card => {
-          if (card.id === transaction.creditCardId) {
-            // A fatura será calculada dinamicamente, não precisa atualizar aqui
-            return card;
-          }
-          return card;
-        });
-        setCreditCards(updatedCards);
-      }
-    }
-
-    // Se a despesa é de um terceiro, criar um receivable
+    // Se a despesa é de um terceiro, criar um receivable para CADA parcela
     if (transaction.type === 'expense' && transaction.responsibleType === 'terceiro' && transaction.thirdPartyId) {
-      const newReceivable: Receivable = {
-        id: `receivable_${Date.now()}`,
-        thirdPartyId: transaction.thirdPartyId,
-        transactionId: newTransaction.id,
-        amount: transaction.amount,
-        paidAmount: 0,
-        status: 'pendente',
-        dueDate: transaction.date,
-        userId: user.id
-      };
+      const newReceivables: Receivable[] = [];
       
-      const updatedReceivables = [...receivables, newReceivable];
+      // Criar um receivable para cada transação (incluindo parcelas)
+      updatedTransactions.forEach((trans, index) => {
+        const receivable: Receivable = {
+          id: `receivable_${Date.now()}_${index}`,
+          thirdPartyId: transaction.thirdPartyId!,
+          transactionId: trans.id,
+          amount: trans.amount,
+          paidAmount: 0,
+          status: 'pendente',
+          dueDate: trans.date,
+          userId: user.id
+        };
+        newReceivables.push(receivable);
+      });
+      
+      const updatedReceivables = [...receivables, ...newReceivables];
       setReceivables(updatedReceivables);
       saveToLocalStorage('finance_receivables', updatedReceivables);
     }

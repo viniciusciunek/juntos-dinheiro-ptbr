@@ -53,18 +53,23 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
-				// Custom financial app colors
+				// Nova paleta de cores financeira
 				finance: {
-					green: '#00C853',
-					'green-light': '#B2DFDB',
-					blue: '#2196F3',
-					'blue-light': '#E3F2FD',
-					purple: '#9C27B0',
-					'purple-light': '#F3E5F5',
-					red: '#F44336',
-					'red-light': '#FFEBEE',
-					orange: '#FF9800',
-					'orange-light': '#FFF3E0'
+					primary: '#004D40',      // Verde pinho - cor principal
+					'primary-light': '#00695C',
+					secondary: '#212121',    // Cinza escuro para textos
+					'secondary-light': '#424242',
+					green: '#2E7D32',       // Verde para receitas/positivos
+					'green-light': '#4CAF50',
+					red: '#C62828',         // Vermelho sóbrio para despesas/negativos
+					'red-light': '#E53935',
+					gold: '#FFAB00',        // Dourado para acentos
+					'gold-light': '#FFC107',
+					background: '#F7F7F7',  // Fundo principal
+					'background-card': '#FFFFFF',
+					text: '#212121',        // Texto padrão
+					'text-light': '#424242',
+					'text-muted': '#757575'
 				}
 			},
 			borderRadius: {

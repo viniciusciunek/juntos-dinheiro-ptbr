@@ -11,6 +11,7 @@ import AccountsScreen from '@/components/accounts/AccountsScreen';
 import ThirdPartiesScreen from '@/components/third-parties/ThirdPartiesScreen';
 import CategoriesScreen from '@/components/categories/CategoriesScreen';
 import ReceivablesScreen from '@/components/receivables/ReceivablesScreen';
+import SettingsScreen from '@/components/settings/SettingsScreen';
 
 const AuthWrapper: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -44,17 +45,24 @@ const MainApp: React.FC = () => {
         return <CategoriesScreen />;
       case 'receivables':
         return <ReceivablesScreen />;
-      case 'family':
-        return <div className="p-4 pb-20"><h2 className="text-xl font-bold">Finanças da Família (Em desenvolvimento)</h2></div>;
       case 'settings':
-        return <div className="p-4 pb-20"><h2 className="text-xl font-bold">Configurações (Em desenvolvimento)</h2></div>;
+        return <SettingsScreen onNavigate={setActiveTab} />;
+      case 'family':
+        return (
+          <div className="min-h-screen bg-finance-background">
+            <div className="p-4 pb-20">
+              <h2 className="text-xl font-bold text-finance-secondary">Finanças da Família</h2>
+              <p className="text-finance-text-muted mt-2">Funcionalidade em desenvolvimento</p>
+            </div>
+          </div>
+        );
       default:
         return <DashboardScreen />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-finance-background">
       <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="animate-fade-in">
         {renderActiveTab()}
