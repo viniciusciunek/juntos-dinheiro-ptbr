@@ -5,6 +5,8 @@ export interface ThirdParty {
   id: string;
   name: string;
   userId: string;
+  relationship?: string;
+  avatar?: string;
 }
 
 export interface BankAccount {
@@ -80,8 +82,8 @@ export interface Receivable {
 interface FinanceContextType {
   // Third Parties
   thirdParties: ThirdParty[];
-  addThirdParty: (name: string) => void;
-  updateThirdParty: (id: string, name: string) => void;
+  addThirdParty: (thirdParty: Omit<ThirdParty, 'id' | 'userId'>) => void;
+  updateThirdParty: (id: string, thirdParty: Partial<Omit<ThirdParty, 'id' | 'userId'>>) => void;
   deleteThirdParty: (id: string) => void;
   
   // Bank Accounts
@@ -112,7 +114,7 @@ interface FinanceContextType {
   
   // Receivables
   receivables: Receivable[];
-  recordPayment: (receivableId: string, amount: number) => void;
+  recordPayment: (receivableId: string, amount: number, accountId?: string) => void;
   
   // Analytics
   getCurrentMonthExpenses: () => number;
@@ -167,11 +169,20 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   // Third Parties functions
-  const addThirdParty = (name: string) => {
+  const addThirdParty = (thirdPartyData: Omit<ThirdParty, 'id' | 'userId'>) => {
     if (!user) return;
+    
+    // Check for unique name
+    const existingThirdParty = thirdParties.find(tp => 
+      tp.name.toLowerCase() === thirdPartyData.name.toLowerCase()
+    );
+    if (existingThirdParty) {
+      throw new Error('Já existe um terceiro com este nome');
+    }
+    
     const newThirdParty: ThirdParty = {
+      ...thirdPartyData,
       id: Date.now().toString(),
-      name,
       userId: user.id
     };
     const updated = [...thirdParties, newThirdParty];
@@ -179,8 +190,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     saveToLocalStorage('finance_third_parties', updated);
   };
 
-  const updateThirdParty = (id: string, name: string) => {
-    const updated = thirdParties.map(tp => tp.id === id ? { ...tp, name } : tp);
+  const updateThirdParty = (id: string, thirdPartyData: Partial<Omit<ThirdParty, 'id' | 'userId'>>) => {
+    // Check for unique name if name is being updated
+    if (thirdPartyData.name) {
+      const existingThirdParty = thirdParties.find(tp => 
+        tp.id !== id && tp.name.toLowerCase() === thirdPartyData.name.toLowerCase()
+      );
+      if (existingThirdParty) {
+        throw new Error('Já existe um terceiro com este nome');
+      }
+    }
+    
+    const updated = thirdParties.map(tp => tp.id === id ? { ...tp, ...thirdPartyData } : tp);
     setThirdParties(updated);
     saveToLocalStorage('finance_third_parties', updated);
   };
@@ -447,7 +468,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   // Receivables functions
-  const recordPayment = (receivableId: string, amount: number) => {
+  const recordPayment = (receivableId: string, amount: number, accountId?: string) => {
     const updated = receivables.map(r => {
       if (r.id === receivableId) {
         const newPaidAmount = r.paidAmount + amount;
@@ -463,17 +484,21 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setReceivables(updated);
     saveToLocalStorage('finance_receivables', updated);
 
-    // Adicionar como receita
+    // Add as income transaction
     if (user) {
+      const receivable = receivables.find(r => r.id === receivableId);
+      const thirdParty = thirdParties.find(tp => tp.id === receivable?.thirdPartyId);
+      
       const paymentTransaction: Transaction = {
         id: `payment_${Date.now()}`,
-        description: `Recebimento de terceiro`,
+        description: `Recebimento de ${thirdParty?.name || 'terceiro'}`,
         amount,
         date: new Date().toISOString().split('T')[0],
         type: 'income',
         source: 'Recebimento de Terceiro',
         recipient: 'eu',
-        userId: user.id
+        userId: user.id,
+        bankAccountId: accountId
       };
       
       const updatedTransactions = [...transactions, paymentTransaction];
