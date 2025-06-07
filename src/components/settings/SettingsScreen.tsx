@@ -11,7 +11,8 @@ import {
   Bell, 
   LogOut,
   Settings,
-  ChevronRight
+  ChevronRight,
+  UserPlus
 } from 'lucide-react';
 
 interface SettingsScreenProps {
@@ -19,7 +20,7 @@ interface SettingsScreenProps {
 }
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) => {
-  const { user, logout } = useAuth();
+  const { profile, logout, hasPartner } = useAuth();
 
   const settingsItems = [
     {
@@ -31,12 +32,20 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) => {
       color: 'text-finance-primary'
     },
     {
+      id: 'family',
+      title: hasPartner ? 'Finanças da Família' : 'Convidar para Família',
+      description: hasPartner ? 'Gerenciar conexão familiar' : 'Conectar com cônjuge/parceiro',
+      icon: hasPartner ? Users : UserPlus,
+      action: () => onNavigate('family'),
+      color: 'text-finance-green'
+    },
+    {
       id: 'accounts',
       title: 'Gerenciar Contas',
       description: 'Contas bancárias e cartões de crédito',
       icon: CreditCard,
       action: () => onNavigate('cards'),
-      color: 'text-finance-green'
+      color: 'text-finance-gold'
     },
     {
       id: 'categories',
@@ -44,7 +53,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) => {
       description: 'Categorias de despesas pessoais',
       icon: Tags,
       action: () => onNavigate('categories'),
-      color: 'text-finance-gold'
+      color: 'text-finance-red'
     },
     {
       id: 'third-parties',
@@ -52,7 +61,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) => {
       description: 'Familiares e amigos',
       icon: Users,
       action: () => onNavigate('third-parties'),
-      color: 'text-finance-red'
+      color: 'text-finance-secondary'
     },
     {
       id: 'notifications',
@@ -83,8 +92,10 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) => {
                   <User className="h-6 w-6 text-white" />
                 </div>
                 <div className="flex-1 text-left">
-                  <h3 className="font-semibold text-finance-text">{user?.name}</h3>
-                  <p className="text-sm text-finance-text-muted">{user?.email}</p>
+                  <h3 className="font-semibold text-finance-text">{profile?.name}</h3>
+                  <p className="text-sm text-finance-text-muted">
+                    {hasPartner ? 'Conectado em família' : 'Conta individual'}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -109,7 +120,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) => {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <div className={`w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center`}>
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
                         <Icon className={`h-5 w-5 ${item.color}`} />
                       </div>
                       <div className="flex-1">

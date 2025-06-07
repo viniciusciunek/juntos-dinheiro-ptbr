@@ -12,6 +12,8 @@ import ThirdPartiesScreen from '@/components/third-parties/ThirdPartiesScreen';
 import CategoriesScreen from '@/components/categories/CategoriesScreen';
 import ReceivablesScreen from '@/components/receivables/ReceivablesScreen';
 import SettingsScreen from '@/components/settings/SettingsScreen';
+import ProfileScreen from '@/components/profile/ProfileScreen';
+import FamilyInviteScreen from '@/components/family/FamilyInviteScreen';
 
 const AuthWrapper: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -24,8 +26,19 @@ const AuthWrapper: React.FC = () => {
 };
 
 const MainApp: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-finance-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-finance-primary mx-auto"></div>
+          <p className="text-finance-text-muted mt-2">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <AuthWrapper />;
@@ -47,15 +60,10 @@ const MainApp: React.FC = () => {
         return <ReceivablesScreen />;
       case 'settings':
         return <SettingsScreen onNavigate={setActiveTab} />;
+      case 'profile':
+        return <ProfileScreen onNavigate={setActiveTab} />;
       case 'family':
-        return (
-          <div className="min-h-screen bg-finance-background">
-            <div className="p-4 pb-20">
-              <h2 className="text-xl font-bold text-finance-secondary">Finanças da Família</h2>
-              <p className="text-finance-text-muted mt-2">Funcionalidade em desenvolvimento</p>
-            </div>
-          </div>
-        );
+        return <FamilyInviteScreen onNavigate={setActiveTab} />;
       default:
         return <DashboardScreen />;
     }

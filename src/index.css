@@ -5,65 +5,93 @@
 
 @layer base {
   :root {
-    --background: 247 247 247;
-    --foreground: 33 33 33;
+    /* Cores de Fundo e Texto Base (Modo Claro) */
+    --background: 248 249 250; /* #F8F9FA */
+    --foreground: 55 65 81;    /* #374151 */
 
-    --card: 255 255 255;
-    --card-foreground: 33 33 33;
+    --card: 255 255 255;       /* #FFFFFF */
+    --card-foreground: 55 65 81; /* #374151 */
 
-    --popover: 255 255 255;
-    --popover-foreground: 33 33 33;
+    --popover: 255 255 255;    /* #FFFFFF */
+    --popover-foreground: 55 65 81; /* #374151 */
 
-    --primary: 0 77 64;
-    --primary-foreground: 255 255 255;
+    /* Cor Primária - Verde Pinho */
+    --primary: 0 77 64;        /* #004D40 */
+    --primary-foreground: 255 255 255; /* #FFFFFF */
 
-    --secondary: 245 245 245;
-    --secondary-foreground: 66 66 66;
+    /* Cor Secundária - Cinza Escuro */
+    --secondary: 245 245 245;  /* #F5F5F5 */
+    --secondary-foreground: 33 33 33; /* #212121 */
 
-    --muted: 245 245 245;
-    --muted-foreground: 117 117 117;
+    --muted: 245 245 245;      /* #F5F5F5 */
+    --muted-foreground: 117 117 117; /* #757575 */
 
-    --accent: 245 245 245;
-    --accent-foreground: 66 66 66;
+    --accent: 245 245 245;     /* #F5F5F5 */
+    --accent-foreground: 66 66 66; /* #424242 */
 
-    --destructive: 198 40 40;
-    --destructive-foreground: 255 255 255;
+    /* Cor Destrutiva - Vermelho Sóbrio */
+    --destructive: 198 40 40;  /* #C62828 */
+    --destructive-foreground: 255 255 255; /* #FFFFFF */
 
-    --border: 229 229 229;
-    --input: 229 229 229;
-    --ring: 0 77 64;
+    --border: 229 229 229;     /* #E5E5E5 */
+    --input: 229 229 229;      /* #E5E5E5 */
+    --ring: 0 77 64;          /* #004D40 */
 
     --radius: 0.75rem;
+
+    /* Cores Customizadas para Finanças */
+    --finance-primary: 0 77 64;        /* #004D40 - Verde pinho */
+    --finance-primary-light: 0 105 92; /* #00695C */
+    --finance-secondary: 33 33 33;     /* #212121 - Cinza escuro */
+    --finance-secondary-light: 66 66 66; /* #424242 */
+    --finance-green: 46 125 50;        /* #2E7D32 - Verde para receitas */
+    --finance-green-light: 76 175 80;  /* #4CAF50 */
+    --finance-red: 198 40 40;          /* #C62828 - Vermelho sóbrio */
+    --finance-red-light: 229 57 53;    /* #E53935 */
+    --finance-gold: 255 171 0;         /* #FFAB00 - Dourado */
+    --finance-gold-light: 255 193 7;   /* #FFC107 */
+    --finance-background: 248 249 250; /* #F8F9FA */
+    --finance-background-card: 255 255 255; /* #FFFFFF */
+    --finance-text: 33 33 33;          /* #212121 */
+    --finance-text-light: 66 66 66;    /* #424242 */
+    --finance-text-muted: 117 117 117; /* #757575 */
   }
 
   .dark {
-    --background: 33 33 33;
-    --foreground: 247 247 247;
+    --background: 33 33 33;    /* #212121 */
+    --foreground: 248 249 250; /* #F8F9FA */
 
-    --card: 48 48 48;
-    --card-foreground: 247 247 247;
+    --card: 48 48 48;          /* #303030 */
+    --card-foreground: 248 249 250; /* #F8F9FA */
 
-    --popover: 48 48 48;
-    --popover-foreground: 247 247 247;
+    --popover: 48 48 48;       /* #303030 */
+    --popover-foreground: 248 249 250; /* #F8F9FA */
 
-    --primary: 0 77 64;
-    --primary-foreground: 255 255 255;
+    --primary: 0 77 64;        /* #004D40 */
+    --primary-foreground: 255 255 255; /* #FFFFFF */
 
-    --secondary: 66 66 66;
-    --secondary-foreground: 247 247 247;
+    --secondary: 66 66 66;     /* #424242 */
+    --secondary-foreground: 248 249 250; /* #F8F9FA */
 
-    --muted: 66 66 66;
-    --muted-foreground: 163 163 163;
+    --muted: 66 66 66;         /* #424242 */
+    --muted-foreground: 163 163 163; /* #A3A3A3 */
 
-    --accent: 66 66 66;
-    --accent-foreground: 247 247 247;
+    --accent: 66 66 66;        /* #424242 */
+    --accent-foreground: 248 249 250; /* #F8F9FA */
 
-    --destructive: 198 40 40;
-    --destructive-foreground: 247 247 247;
+    --destructive: 198 40 40;  /* #C62828 */
+    --destructive-foreground: 248 249 250; /* #F8F9FA */
 
-    --border: 66 66 66;
-    --input: 66 66 66;
-    --ring: 0 77 64;
+    --border: 66 66 66;        /* #424242 */
+    --input: 66 66 66;         /* #424242 */
+    --ring: 0 77 64;          /* #004D40 */
+
+    /* Cores Customizadas para Finanças - Modo Escuro */
+    --finance-background: 33 33 33;    /* #212121 */
+    --finance-background-card: 48 48 48; /* #303030 */
+    --finance-text: 248 249 250;       /* #F8F9FA */
+    --finance-text-light: 224 224 224; /* #E0E0E0 */
+    --finance-text-muted: 158 158 158; /* #9E9E9E */
   }
 }
 
@@ -84,7 +112,7 @@
   }
   
   .gradient-card {
-    background: linear-gradient(135deg, #ffffff 0%, #f7f7f7 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
   }
   
   .shadow-card {

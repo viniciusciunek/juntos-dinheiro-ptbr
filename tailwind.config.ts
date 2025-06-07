@@ -55,21 +55,21 @@ export default {
 				},
 				// Nova paleta de cores financeira
 				finance: {
-					primary: '#004D40',      // Verde pinho - cor principal
-					'primary-light': '#00695C',
-					secondary: '#212121',    // Cinza escuro para textos
-					'secondary-light': '#424242',
-					green: '#2E7D32',       // Verde para receitas/positivos
-					'green-light': '#4CAF50',
-					red: '#C62828',         // Vermelho sóbrio para despesas/negativos
-					'red-light': '#E53935',
-					gold: '#FFAB00',        // Dourado para acentos
-					'gold-light': '#FFC107',
-					background: '#F7F7F7',  // Fundo principal
-					'background-card': '#FFFFFF',
-					text: '#212121',        // Texto padrão
-					'text-light': '#424242',
-					'text-muted': '#757575'
+					primary: 'hsl(var(--finance-primary))',
+					'primary-light': 'hsl(var(--finance-primary-light))',
+					secondary: 'hsl(var(--finance-secondary))',
+					'secondary-light': 'hsl(var(--finance-secondary-light))',
+					green: 'hsl(var(--finance-green))',
+					'green-light': 'hsl(var(--finance-green-light))',
+					red: 'hsl(var(--finance-red))',
+					'red-light': 'hsl(var(--finance-red-light))',
+					gold: 'hsl(var(--finance-gold))',
+					'gold-light': 'hsl(var(--finance-gold-light))',
+					background: 'hsl(var(--finance-background))',
+					'background-card': 'hsl(var(--finance-background-card))',
+					text: 'hsl(var(--finance-text))',
+					'text-light': 'hsl(var(--finance-text-light))',
+					'text-muted': 'hsl(var(--finance-text-muted))'
 				}
 			},
 			borderRadius: {
