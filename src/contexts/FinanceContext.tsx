@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -154,9 +153,15 @@ interface FinanceContextType {
   getBankAccountBalance: (accountId: string) => number;
   getCreditCardCurrentBill: (cardId: string) => number;
   getThirdPartyBalance: (thirdPartyId: string) => number;
-  getCurrentMonthReceivables: () => { receivables: Receivable[]; scheduledIncomes: ScheduledIncome[] };
-  recordPayment: (type: 'receivable' | 'scheduled_income', id: string, amount: number, accountId: string) => Promise<void>;
-  confirmScheduledIncomeReceipt: (id: string, accountId: string) => Promise<void>;
+  getCurrentMonthReceivables: () => { 
+    receivables: Receivable[]; 
+    scheduledIncomes: ScheduledIncome[];
+    total: number;
+    thirdPartyDebt: number;
+    scheduledIncomesTotal: number;
+  };
+  recordPayment: (receivableId: string, amount: number, accountId: string) => Promise<void>;
+  confirmScheduledIncomeReceipt: (id: string, amount: number, date: string, accountId: string) => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -216,7 +221,7 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
         thirdPartyId: t.third_party_id,
         description: t.description,
         amount: t.amount,
-        type: t.type,
+        type: t.type as 'income' | 'expense',
         transactionDate: t.transaction_date,
         dueDate: t.due_date,
         responsiblePersonId: t.responsible_person_id,
@@ -388,7 +393,23 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
       return expectedDate >= startOfMonth && expectedDate <= endOfMonth;
     });
 
-    return { receivables: monthReceivables, scheduledIncomes: monthScheduledIncomes };
+    const thirdPartyDebt = monthReceivables
+      .filter(r => r.status === 'pending')
+      .reduce((sum, r) => sum + (r.amount - (r.paidAmount || 0)), 0);
+
+    const scheduledIncomesTotal = monthScheduledIncomes
+      .filter(s => s.status === 'pending')
+      .reduce((sum, s) => sum + s.amount, 0);
+
+    const total = thirdPartyDebt + scheduledIncomesTotal;
+
+    return { 
+      receivables: monthReceivables, 
+      scheduledIncomes: monthScheduledIncomes,
+      total,
+      thirdPartyDebt,
+      scheduledIncomesTotal
+    };
   };
 
   // CRUD operations
@@ -613,20 +634,80 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
     await loadData();
   };
 
-  const recordPayment = async (type: 'receivable' | 'scheduled_income', id: string, amount: number, accountId: string) => {
-    // Implementation for recording payments
-    console.log('Recording payment:', { type, id, amount, accountId });
-    await loadData();
+  const recordPayment = async (receivableId: string, amount: number, accountId: string) => {
+    try {
+      // Update receivable with payment
+      const receivable = receivables.find(r => r.id === receivableId);
+      if (!receivable) throw new Error('Receivable not found');
+
+      const newPaidAmount = (receivable.paidAmount || 0) + amount;
+      const newStatus = newPaidAmount >= receivable.amount ? 'paid' : 'pending';
+
+      const { error: receivableError } = await supabase
+        .from('receivables')
+        .update({ 
+          paid_amount: newPaidAmount,
+          status: newStatus
+        })
+        .eq('id', receivableId);
+
+      if (receivableError) throw receivableError;
+
+      // Create income transaction
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert([{
+          user_id: user!.id,
+          account_id: accountId,
+          description: `Pagamento recebido: ${receivable.description}`,
+          amount,
+          type: 'income',
+          transaction_date: new Date().toISOString().split('T')[0],
+          status: 'completed'
+        }]);
+
+      if (transactionError) throw transactionError;
+
+      await loadData();
+    } catch (error) {
+      console.error('Error recording payment:', error);
+      throw error;
+    }
   };
 
-  const confirmScheduledIncomeReceipt = async (id: string, accountId: string) => {
-    const { error } = await supabase
-      .from('scheduled_incomes')
-      .update({ status: 'received' })
-      .eq('id', id);
-    
-    if (error) throw error;
-    await loadData();
+  const confirmScheduledIncomeReceipt = async (id: string, amount: number, date: string, accountId: string) => {
+    try {
+      const scheduledIncome = scheduledIncomes.find(s => s.id === id);
+      if (!scheduledIncome) throw new Error('Scheduled income not found');
+
+      // Update scheduled income status
+      const { error: scheduleError } = await supabase
+        .from('scheduled_incomes')
+        .update({ status: 'received' })
+        .eq('id', id);
+
+      if (scheduleError) throw scheduleError;
+
+      // Create income transaction
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert([{
+          user_id: user!.id,
+          account_id: accountId,
+          description: scheduledIncome.description,
+          amount,
+          type: 'income',
+          transaction_date: date,
+          status: 'completed'
+        }]);
+
+      if (transactionError) throw transactionError;
+
+      await loadData();
+    } catch (error) {
+      console.error('Error confirming scheduled income receipt:', error);
+      throw error;
+    }
   };
 
   const refreshData = async () => {

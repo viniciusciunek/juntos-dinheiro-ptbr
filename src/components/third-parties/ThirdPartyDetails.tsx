@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,8 +31,8 @@ const ThirdPartyDetails: React.FC<ThirdPartyDetailsProps> = ({ thirdPartyId, onB
   }
 
   const thirdPartyReceivables = receivables.filter(r => r.thirdPartyId === thirdPartyId);
-  const pendingReceivables = thirdPartyReceivables.filter(r => r.status !== 'pago');
-  const paidReceivables = thirdPartyReceivables.filter(r => r.status === 'pago');
+  const pendingReceivables = thirdPartyReceivables.filter(r => r.status !== 'paid');
+  const paidReceivables = thirdPartyReceivables.filter(r => r.status === 'paid');
 
   const getTransactionDetails = (transactionId: string) => {
     return transactions.find(t => t.id === transactionId);
@@ -146,7 +145,7 @@ const ThirdPartyDetails: React.FC<ThirdPartyDetailsProps> = ({ thirdPartyId, onB
                   <TableBody>
                     {pendingReceivables.map((receivable) => {
                       const transaction = getTransactionDetails(receivable.transactionId);
-                      const pendingAmount = receivable.amount - receivable.paidAmount;
+                      const pendingAmount = receivable.amount - (receivable.paidAmount || 0);
                       return (
                         <TableRow key={receivable.id}>
                           <TableCell className="font-medium">
@@ -163,10 +162,10 @@ const ThirdPartyDetails: React.FC<ThirdPartyDetailsProps> = ({ thirdPartyId, onB
                           </TableCell>
                           <TableCell>
                             <Badge variant={
-                              receivable.status === 'pendente' ? 'destructive' : 'secondary'
+                              receivable.status === 'pending' ? 'destructive' : 'secondary'
                             }>
-                              {receivable.status === 'pendente' ? 'Pendente' :
-                               receivable.status === 'parcialmente_pago' ? 'Parcial' : 'Pago'}
+                              {receivable.status === 'pending' ? 'Pendente' :
+                               receivable.status === 'paid' ? 'Pago' : 'Parcial'}
                             </Badge>
                           </TableCell>
                         </TableRow>

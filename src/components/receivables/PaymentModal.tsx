@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +18,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ type, item, onClose }) => {
   const { bankAccounts, recordPayment, confirmScheduledIncomeReceipt } = useFinance();
   
   const [formData, setFormData] = useState({
-    amount: type === 'debt' ? (item.amount - item.paidAmount).toString() : item.amount.toString(),
+    amount: type === 'debt' ? (item.amount - (item.paidAmount || 0)).toString() : item.amount.toString(),
     date: new Date().toISOString().split('T')[0],
     accountId: ''
   });
@@ -55,7 +54,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ type, item, onClose }) => {
 
     // Validate amount for debt payments
     if (type === 'debt') {
-      const maxAmount = item.amount - item.paidAmount;
+      const maxAmount = item.amount - (item.paidAmount || 0);
       if (amount > maxAmount) {
         toast({
           title: "Erro",
@@ -98,7 +97,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ type, item, onClose }) => {
     }));
   };
 
-  const maxAmount = type === 'debt' ? item.amount - item.paidAmount : item.amount;
+  const maxAmount = type === 'debt' ? item.amount - (item.paidAmount || 0) : item.amount;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

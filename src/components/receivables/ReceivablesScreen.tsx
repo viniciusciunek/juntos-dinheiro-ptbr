@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,8 +31,8 @@ const ReceivablesScreen: React.FC = () => {
     }).format(value);
   };
 
-  const pendingReceivables = receivables.filter(r => r.status !== 'pago');
-  const pendingScheduledIncomes = scheduledIncomes.filter(si => si.status === 'pendente');
+  const pendingReceivables = receivables.filter(r => r.status !== 'paid');
+  const pendingScheduledIncomes = scheduledIncomes.filter(si => si.status === 'pending');
 
   // Group receivables by third party
   const groupedReceivables = pendingReceivables.reduce((acc, receivable) => {
@@ -101,7 +100,7 @@ const ReceivablesScreen: React.FC = () => {
                 <span className="text-sm font-medium">Receitas Agendadas</span>
               </div>
               <div className="text-lg font-bold text-finance-blue">
-                {formatCurrency(currentMonthReceivables.scheduledIncomes)}
+                {formatCurrency(currentMonthReceivables.scheduledIncomesTotal)}
               </div>
             </div>
           </div>
@@ -137,7 +136,7 @@ const ReceivablesScreen: React.FC = () => {
             </Card>
           ) : (
             Object.entries(groupedReceivables).map(([thirdPartyName, receivablesList]) => {
-              const totalOwed = receivablesList.reduce((sum, r) => sum + (r.amount - r.paidAmount), 0);
+              const totalOwed = receivablesList.reduce((sum, r) => sum + (r.amount - (r.paidAmount || 0)), 0);
               
               return (
                 <Card key={thirdPartyName} className="shadow-card">
@@ -151,7 +150,7 @@ const ReceivablesScreen: React.FC = () => {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {receivablesList.map((receivable) => {
-                      const pendingAmount = receivable.amount - receivable.paidAmount;
+                      const pendingAmount = receivable.amount - (receivable.paidAmount || 0);
                       
                       return (
                         <div key={receivable.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -162,9 +161,9 @@ const ReceivablesScreen: React.FC = () => {
                             <div className="text-sm text-gray-600">
                               Vence em: {new Date(receivable.dueDate).toLocaleDateString('pt-BR')}
                             </div>
-                            {receivable.paidAmount > 0 && (
+                            {(receivable.paidAmount || 0) > 0 && (
                               <div className="text-xs text-finance-green">
-                                Já pago: {formatCurrency(receivable.paidAmount)}
+                                Já pago: {formatCurrency(receivable.paidAmount || 0)}
                               </div>
                             )}
                           </div>

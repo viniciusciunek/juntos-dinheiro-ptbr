@@ -29,7 +29,7 @@ const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = ({ third
   
   const thirdParty = thirdParties.find(tp => tp.id === thirdPartyId);
   const pendingReceivables = receivables.filter(
-    r => r.thirdPartyId === thirdPartyId && r.status !== 'pago'
+    r => r.thirdPartyId === thirdPartyId && r.status !== 'paid'
   );
 
   const getTransactionDetails = (transactionId: string) => {
@@ -48,7 +48,7 @@ const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = ({ third
   };
 
   const getTotalPendingAmount = () => {
-    return pendingReceivables.reduce((sum, r) => sum + (r.amount - r.paidAmount), 0);
+    return pendingReceivables.reduce((sum, r) => sum + (r.amount - (r.paidAmount || 0)), 0);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -93,7 +93,7 @@ const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = ({ third
     for (const receivable of sortedReceivables) {
       if (remainingAmount <= 0) break;
       
-      const pendingForThisReceivable = receivable.amount - receivable.paidAmount;
+      const pendingForThisReceivable = receivable.amount - (receivable.paidAmount || 0);
       const paymentForThis = Math.min(remainingAmount, pendingForThisReceivable);
       
       recordPayment(receivable.id, paymentForThis, selectedAccountId);
@@ -212,7 +212,7 @@ const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = ({ third
               <TableBody>
                 {pendingReceivables.map((receivable) => {
                   const transaction = getTransactionDetails(receivable.transactionId);
-                  const pendingAmount = receivable.amount - receivable.paidAmount;
+                  const pendingAmount = receivable.amount - (receivable.paidAmount || 0);
                   return (
                     <TableRow key={receivable.id}>
                       <TableCell className="font-medium">
@@ -229,10 +229,10 @@ const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = ({ third
                       </TableCell>
                       <TableCell>
                         <Badge variant={
-                          receivable.status === 'pendente' ? 'destructive' : 'secondary'
+                          receivable.status === 'pending' ? 'destructive' : 'secondary'
                         }>
-                          {receivable.status === 'pendente' ? 'Pendente' :
-                           receivable.status === 'parcialmente_pago' ? 'Parcial' : 'Pago'}
+                          {receivable.status === 'pending' ? 'Pendente' :
+                           receivable.status === 'paid' ? 'Pago' : 'Parcial'}
                         </Badge>
                       </TableCell>
                     </TableRow>
