@@ -52,7 +52,7 @@ const DashboardScreen: React.FC = () => {
   }, [selectedPeriod]);
 
   const filteredTransactions = transactions.filter(transaction => {
-    const transactionDate = new Date(transaction.transaction_date);
+    const transactionDate = new Date(transaction.transactionDate);
     return transactionDate >= currentPeriod.start && transactionDate <= currentPeriod.end;
   });
 
@@ -87,7 +87,7 @@ const DashboardScreen: React.FC = () => {
 
   const getRecentTransactions = () => {
     return filteredTransactions
-      .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
+      .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
       .slice(0, 8);
   };
 
@@ -280,7 +280,7 @@ const DashboardScreen: React.FC = () => {
                         {transaction.description}
                       </p>
                       <p className="text-xs text-finance-text-muted">
-                        {format(new Date(transaction.transaction_date), 'dd/MM/yyyy', { locale: ptBR })}
+                        {format(new Date(transaction.transactionDate), 'dd/MM/yyyy', { locale: ptBR })}
                         {transaction.category && ` • ${transaction.category.name}`}
                       </p>
                     </div>

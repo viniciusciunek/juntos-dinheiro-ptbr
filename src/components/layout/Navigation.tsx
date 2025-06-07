@@ -19,7 +19,7 @@ interface NavigationProps {
 }
 
 const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }) => {
-  const { user, logout, hasPartner } = useAuth();
+  const { profile, logout, hasPartner } = useAuth();
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: Calendar },
@@ -35,10 +35,10 @@ const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }) => {
       <div className="bg-finance-background-card border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
         <div>
           <h1 className="text-lg font-semibold text-finance-secondary">
-            Olá, {user?.name}! 👋
+            Olá, {profile?.name}! 👋
           </h1>
           <p className="text-sm text-finance-text-muted">
-            {hasPartner ? `Conectado com ${user?.partnerEmail}` : 'Gerencie suas finanças pessoais'}
+            {hasPartner ? 'Conectado em família' : 'Gerencie suas finanças pessoais'}
           </p>
         </div>
         
