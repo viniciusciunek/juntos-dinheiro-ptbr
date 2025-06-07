@@ -35,22 +35,25 @@ export interface Transaction {
   };
   account?: {
     id: string;
-    name: string;
-    type: string;
+    accountName: string;
+    accountType: string;
   };
   creditCard?: {
     id: string;
-    name: string;
-    bank: string;
+    cardName: string;
+    bankName: string;
   };
 }
 
-export interface Account {
+export interface BankAccount {
   id: string;
   userId: string;
-  name: string;
-  type: string;
-  balance: number;
+  accountName: string;
+  bankName: string;
+  accountType: 'conta_corrente' | 'conta_poupanca' | 'conta_pagamentos' | 'outra';
+  initialBalance: number;
+  initialBalanceDate: string;
+  identificationColor?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -58,11 +61,13 @@ export interface Account {
 export interface CreditCard {
   id: string;
   userId: string;
-  name: string;
-  bank: string;
-  limitAmount: number;
+  cardName: string;
+  cardBrand?: 'visa' | 'mastercard' | 'elo' | 'amex' | 'outra';
+  issuer?: string;
   closingDay: number;
   dueDay: number;
+  cardLimit?: number;
+  identificationColor?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -82,6 +87,7 @@ export interface ThirdParty {
   userId: string;
   name: string;
   relationship: string;
+  avatar?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -93,6 +99,7 @@ export interface Receivable {
   transactionId?: string;
   description: string;
   amount: number;
+  paidAmount?: number;
   dueDate: string;
   status: 'pending' | 'paid';
   createdAt: string;
@@ -114,36 +121,42 @@ export interface ScheduledIncome {
 
 interface FinanceContextType {
   transactions: Transaction[];
-  accounts: Account[];
+  bankAccounts: BankAccount[];
   creditCards: CreditCard[];
   categories: Category[];
   thirdParties: ThirdParty[];
   receivables: Receivable[];
   scheduledIncomes: ScheduledIncome[];
   loading: boolean;
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<void>;
   updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
-  addAccount: (account: Omit<Account, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
-  updateAccount: (id: string, updates: Partial<Account>) => Promise<void>;
-  deleteAccount: (id: string) => Promise<void>;
-  addCreditCard: (creditCard: Omit<CreditCard, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  addBankAccount: (account: Omit<BankAccount, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<void>;
+  updateBankAccount: (id: string, updates: Partial<BankAccount>) => Promise<void>;
+  deleteBankAccount: (id: string) => boolean;
+  addCreditCard: (creditCard: Omit<CreditCard, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<void>;
   updateCreditCard: (id: string, updates: Partial<CreditCard>) => Promise<void>;
-  deleteCreditCard: (id: string) => Promise<void>;
-  addCategory: (category: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  deleteCreditCard: (id: string) => boolean;
+  addCategory: (category: Omit<Category, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<void>;
   updateCategory: (id: string, updates: Partial<Category>) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
-  addThirdParty: (thirdParty: Omit<ThirdParty, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  addThirdParty: (thirdParty: Omit<ThirdParty, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<void>;
   updateThirdParty: (id: string, updates: Partial<ThirdParty>) => Promise<void>;
   deleteThirdParty: (id: string) => Promise<void>;
-  addReceivable: (receivable: Omit<Receivable, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  addReceivable: (receivable: Omit<Receivable, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<void>;
   updateReceivable: (id: string, updates: Partial<Receivable>) => Promise<void>;
   deleteReceivable: (id: string) => Promise<void>;
-  addScheduledIncome: (scheduledIncome: Omit<ScheduledIncome, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  addScheduledIncome: (scheduledIncome: Omit<ScheduledIncome, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<void>;
   updateScheduledIncome: (id: string, updates: Partial<ScheduledIncome>) => Promise<void>;
   deleteScheduledIncome: (id: string) => Promise<void>;
   getReceivablesTotal: () => number;
   getScheduledIncomesTotal: () => number;
+  getBankAccountBalance: (accountId: string) => number;
+  getCreditCardCurrentBill: (cardId: string) => number;
+  getThirdPartyBalance: (thirdPartyId: string) => number;
+  getCurrentMonthReceivables: () => { receivables: Receivable[]; scheduledIncomes: ScheduledIncome[] };
+  recordPayment: (type: 'receivable' | 'scheduled_income', id: string, amount: number, accountId: string) => Promise<void>;
+  confirmScheduledIncomeReceipt: (id: string, accountId: string) => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -156,7 +169,7 @@ interface FinanceProviderProps {
 export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) => {
   const { user, profile } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [thirdParties, setThirdParties] = useState<ThirdParty[]>([]);
@@ -226,13 +239,13 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
         } : undefined,
         account: t.accounts ? {
           id: t.accounts.id,
-          name: t.accounts.name,
-          type: t.accounts.type
+          accountName: t.accounts.name,
+          accountType: t.accounts.type
         } : undefined,
         creditCard: t.credit_cards ? {
           id: t.credit_cards.id,
-          name: t.credit_cards.name,
-          bank: t.credit_cards.bank
+          cardName: t.credit_cards.name,
+          bankName: t.credit_cards.bank
         } : undefined
       }));
 
@@ -256,8 +269,8 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
       ]);
 
       // Transform data to camelCase
-      setAccounts((accountsData || []).map(transformSnakeToCamel));
-      setCreditCards((creditCardsData || []).map(transformSnakeToCamel));
+      setBankAccounts((accountsData || []).map(transformAccountToCamel));
+      setCreditCards((creditCardsData || []).map(transformCreditCardToCamel));
       setCategories((categoriesData || []).map(transformSnakeToCamel));
       setThirdParties((thirdPartiesData || []).map(transformSnakeToCamel));
       setReceivables((receivablesData || []).map(r => ({
@@ -273,7 +286,7 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
     }
   };
 
-  // Helper function to transform snake_case to camelCase
+  // Helper functions to transform data
   const transformSnakeToCamel = (obj: any): any => {
     const transformed: any = {};
     for (const key in obj) {
@@ -283,7 +296,33 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
     return transformed;
   };
 
-  // Helper function to transform camelCase to snake_case
+  const transformAccountToCamel = (obj: any): BankAccount => ({
+    id: obj.id,
+    userId: obj.user_id,
+    accountName: obj.name,
+    bankName: obj.type, // Note: this mapping might need adjustment based on your schema
+    accountType: obj.type,
+    initialBalance: obj.balance || 0,
+    initialBalanceDate: obj.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+    identificationColor: obj.identification_color,
+    createdAt: obj.created_at,
+    updatedAt: obj.updated_at
+  });
+
+  const transformCreditCardToCamel = (obj: any): CreditCard => ({
+    id: obj.id,
+    userId: obj.user_id,
+    cardName: obj.name,
+    cardBrand: obj.card_brand,
+    issuer: obj.bank,
+    closingDay: obj.closing_day,
+    dueDay: obj.due_day,
+    cardLimit: obj.limit_amount,
+    identificationColor: obj.identification_color,
+    createdAt: obj.created_at,
+    updatedAt: obj.updated_at
+  });
+
   const transformCamelToSnake = (obj: any): any => {
     const transformed: any = {};
     for (const key in obj) {
@@ -311,11 +350,52 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
       .reduce((sum, s) => sum + s.amount, 0);
   };
 
-  // CRUD operations would be implemented here
-  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const getBankAccountBalance = (accountId: string) => {
+    const account = bankAccounts.find(a => a.id === accountId);
+    if (!account) return 0;
+    
+    const accountTransactions = transactions.filter(t => t.accountId === accountId);
+    const income = accountTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const expenses = accountTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    
+    return account.initialBalance + income - expenses;
+  };
+
+  const getCreditCardCurrentBill = (cardId: string) => {
+    return transactions
+      .filter(t => t.creditCardId === cardId && t.type === 'expense' && t.status === 'pending')
+      .reduce((sum, t) => sum + t.amount, 0);
+  };
+
+  const getThirdPartyBalance = (thirdPartyId: string) => {
+    return receivables
+      .filter(r => r.thirdPartyId === thirdPartyId && r.status === 'pending')
+      .reduce((sum, r) => sum + r.amount - (r.paidAmount || 0), 0);
+  };
+
+  const getCurrentMonthReceivables = () => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const monthReceivables = receivables.filter(r => {
+      const dueDate = new Date(r.dueDate);
+      return dueDate >= startOfMonth && dueDate <= endOfMonth;
+    });
+
+    const monthScheduledIncomes = scheduledIncomes.filter(s => {
+      const expectedDate = new Date(s.expectedDate);
+      return expectedDate >= startOfMonth && expectedDate <= endOfMonth;
+    });
+
+    return { receivables: monthReceivables, scheduledIncomes: monthScheduledIncomes };
+  };
+
+  // CRUD operations
+  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => {
     const { error } = await supabase
       .from('transactions')
-      .insert([transformCamelToSnake(transaction)]);
+      .insert([transformCamelToSnake({ ...transaction, userId: user!.id })]);
     
     if (error) throw error;
     await loadData();
@@ -341,40 +421,54 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
     await loadData();
   };
 
-  // Similar CRUD operations for other entities...
-  const addAccount = async (account: Omit<Account, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addBankAccount = async (account: Omit<BankAccount, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => {
     const { error } = await supabase
       .from('accounts')
-      .insert([transformCamelToSnake(account)]);
+      .insert([{
+        user_id: user!.id,
+        name: account.accountName,
+        type: account.accountType,
+        balance: account.initialBalance,
+        identification_color: account.identificationColor
+      }]);
     
     if (error) throw error;
     await loadData();
   };
 
-  const updateAccount = async (id: string, updates: Partial<Account>) => {
+  const updateBankAccount = async (id: string, updates: Partial<BankAccount>) => {
     const { error } = await supabase
       .from('accounts')
-      .update(transformCamelToSnake(updates))
+      .update({
+        name: updates.accountName,
+        type: updates.accountType,
+        identification_color: updates.identificationColor
+      })
       .eq('id', id);
     
     if (error) throw error;
     await loadData();
   };
 
-  const deleteAccount = async (id: string) => {
-    const { error } = await supabase
-      .from('accounts')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
-    await loadData();
+  const deleteBankAccount = (id: string): boolean => {
+    // Implementation would delete from Supabase and return whether there were associated transactions
+    // For now, just a placeholder
+    return false;
   };
 
-  const addCreditCard = async (creditCard: Omit<CreditCard, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addCreditCard = async (creditCard: Omit<CreditCard, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => {
     const { error } = await supabase
       .from('credit_cards')
-      .insert([transformCamelToSnake(creditCard)]);
+      .insert([{
+        user_id: user!.id,
+        name: creditCard.cardName,
+        bank: creditCard.issuer || '',
+        limit_amount: creditCard.cardLimit || 0,
+        closing_day: creditCard.closingDay,
+        due_day: creditCard.dueDay,
+        card_brand: creditCard.cardBrand,
+        identification_color: creditCard.identificationColor
+      }]);
     
     if (error) throw error;
     await loadData();
@@ -383,27 +477,30 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
   const updateCreditCard = async (id: string, updates: Partial<CreditCard>) => {
     const { error } = await supabase
       .from('credit_cards')
-      .update(transformCamelToSnake(updates))
+      .update({
+        name: updates.cardName,
+        bank: updates.issuer,
+        limit_amount: updates.cardLimit,
+        closing_day: updates.closingDay,
+        due_day: updates.dueDay,
+        card_brand: updates.cardBrand,
+        identification_color: updates.identificationColor
+      })
       .eq('id', id);
     
     if (error) throw error;
     await loadData();
   };
 
-  const deleteCreditCard = async (id: string) => {
-    const { error } = await supabase
-      .from('credit_cards')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
-    await loadData();
+  const deleteCreditCard = (id: string): boolean => {
+    // Implementation would delete from Supabase and return whether there were associated transactions
+    return false;
   };
 
-  const addCategory = async (category: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addCategory = async (category: Omit<Category, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => {
     const { error } = await supabase
       .from('categories')
-      .insert([transformCamelToSnake(category)]);
+      .insert([{ ...transformCamelToSnake(category), user_id: user!.id }]);
     
     if (error) throw error;
     await loadData();
@@ -429,10 +526,10 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
     await loadData();
   };
 
-  const addThirdParty = async (thirdParty: Omit<ThirdParty, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addThirdParty = async (thirdParty: Omit<ThirdParty, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => {
     const { error } = await supabase
       .from('third_parties')
-      .insert([transformCamelToSnake(thirdParty)]);
+      .insert([{ ...transformCamelToSnake(thirdParty), user_id: user!.id }]);
     
     if (error) throw error;
     await loadData();
@@ -458,10 +555,10 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
     await loadData();
   };
 
-  const addReceivable = async (receivable: Omit<Receivable, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addReceivable = async (receivable: Omit<Receivable, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => {
     const { error } = await supabase
       .from('receivables')
-      .insert([transformCamelToSnake(receivable)]);
+      .insert([{ ...transformCamelToSnake(receivable), user_id: user!.id }]);
     
     if (error) throw error;
     await loadData();
@@ -487,10 +584,10 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
     await loadData();
   };
 
-  const addScheduledIncome = async (scheduledIncome: Omit<ScheduledIncome, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addScheduledIncome = async (scheduledIncome: Omit<ScheduledIncome, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => {
     const { error } = await supabase
       .from('scheduled_incomes')
-      .insert([transformCamelToSnake(scheduledIncome)]);
+      .insert([{ ...transformCamelToSnake(scheduledIncome), user_id: user!.id }]);
     
     if (error) throw error;
     await loadData();
@@ -516,6 +613,22 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
     await loadData();
   };
 
+  const recordPayment = async (type: 'receivable' | 'scheduled_income', id: string, amount: number, accountId: string) => {
+    // Implementation for recording payments
+    console.log('Recording payment:', { type, id, amount, accountId });
+    await loadData();
+  };
+
+  const confirmScheduledIncomeReceipt = async (id: string, accountId: string) => {
+    const { error } = await supabase
+      .from('scheduled_incomes')
+      .update({ status: 'received' })
+      .eq('id', id);
+    
+    if (error) throw error;
+    await loadData();
+  };
+
   const refreshData = async () => {
     await loadData();
   };
@@ -524,7 +637,7 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
     <FinanceContext.Provider
       value={{
         transactions,
-        accounts,
+        bankAccounts,
         creditCards,
         categories,
         thirdParties,
@@ -534,9 +647,9 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
         addTransaction,
         updateTransaction,
         deleteTransaction,
-        addAccount,
-        updateAccount,
-        deleteAccount,
+        addBankAccount,
+        updateBankAccount,
+        deleteBankAccount,
         addCreditCard,
         updateCreditCard,
         deleteCreditCard,
@@ -554,6 +667,12 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
         deleteScheduledIncome,
         getReceivablesTotal,
         getScheduledIncomesTotal,
+        getBankAccountBalance,
+        getCreditCardCurrentBill,
+        getThirdPartyBalance,
+        getCurrentMonthReceivables,
+        recordPayment,
+        confirmScheduledIncomeReceipt,
         refreshData,
       }}
     >

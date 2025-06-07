@@ -49,7 +49,7 @@ const ScheduledIncomeForm: React.FC<ScheduledIncomeFormProps> = ({ onClose }) =>
         description: formData.description.trim(),
         amount,
         expectedDate: formData.expectedDate,
-        status: 'pendente',
+        status: 'pending',
         notes: formData.notes.trim() || undefined
       });
 

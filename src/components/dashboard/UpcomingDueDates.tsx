@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Calendar, AlertCircle } from 'lucide-react';
-import { format, addDays, isAfter, isBefore } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface DueTransaction {
@@ -33,8 +32,8 @@ const UpcomingDueDates: React.FC = () => {
 
       // Buscar transações de despesa com vencimento nos próximos 7 dias
       const userIds = [user?.id];
-      if (profile?.linked_user_id) {
-        userIds.push(profile.linked_user_id);
+      if (profile?.linkedUserId) {
+        userIds.push(profile.linkedUserId);
       }
 
       const { data, error } = await supabase
