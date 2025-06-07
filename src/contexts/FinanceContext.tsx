@@ -211,7 +211,7 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
 
       if (transactionsError) throw transactionsError;
 
-      // Transform the data to match our interface
+      // Transform the data to match our interface with proper type casting
       const transformedTransactions: Transaction[] = (transactionsData || []).map(t => ({
         id: t.id,
         userId: t.user_id,
@@ -228,7 +228,7 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
         installments: t.installments,
         currentInstallment: t.current_installment,
         parentTransactionId: t.parent_transaction_id,
-        status: t.status,
+        status: t.status as 'completed' | 'pending' | 'paid',
         createdAt: t.created_at,
         updatedAt: t.updated_at,
         category: t.categories ? {
@@ -305,7 +305,7 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({ children }) =>
     id: obj.id,
     userId: obj.user_id,
     accountName: obj.name,
-    bankName: obj.type, // Note: this mapping might need adjustment based on your schema
+    bankName: obj.type,
     accountType: obj.type,
     initialBalance: obj.balance || 0,
     initialBalanceDate: obj.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
